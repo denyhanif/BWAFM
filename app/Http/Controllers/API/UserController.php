@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\API;
 
 use Exception;
+use App\Models\User;
 use Illuminate\Http\Request;
 use App\Helpers\ResponseFormatter;
 use Illuminate\Support\Facades\Auth;
+use App\Actions\Fortify\PasswordValidationRules;
 
 class UserController extends Controller
 {
     //
+    use PasswordValidationRules;//validasi bawaan fortify
     public function login(Request $request){
         try{
             // validasi input
@@ -44,8 +47,45 @@ class UserController extends Controller
             ],'Auth Failed',500);
 
         }
-        finally{
-            
+        
+    }
+
+    public function register(Request $request){
+
+        try{
+            $request->validate([
+                'name'=> ['required','string','max:255'],
+                'email'=> ['required','string','email','unique:users'],
+                'password'=> $this->passwordRules()
+            ]);
+
+            User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'address' => $request->address,
+                'houseNumber'=> $request->houseNumber,
+                'phoneNumber' => $request->phoneNumber,
+                'city' => $request->city,
+                'password' => Hash::make($request->password),
+            ]);
+
+            $user = User::where('email',$request->email)->first();
+
+            $tokenResult = $user->createToken('authToken')->plainToken;
+
+            return ResposeFormatter::success([
+                'access_token'=>$tokenResult,
+                'token_type'=>'Bearer',
+                'user'=> $user
+            ]);
         }
+        catch(Exception $error){
+            return ResponseFormatter::error([
+                'message' =>'Something went wrong',
+                'error' => $error
+            ],'Authentication Failed',500);
+
+        }
+
     }
 }
